@@ -3,7 +3,7 @@
   Downloads community radio station details to csv.
 
   .DESCRIPTION
-  The RH_UnifiedRS.ps1 script scrapes up to three websites (depending on the option chosen) to extract the details of the Community, 
+  The Get-CommunityRadioStationDetails.ps1 script scrapes up to three websites (depending on the option chosen) to extract the details of the Community, 
   Digital and Small Scale Radio Stations and save them to headed CSV files. If there are any errors during the extraction, these errors will be
   saved with the same name, in the same folder but with an "Error-" prefix and a TXT suffix.
 
@@ -12,7 +12,7 @@
   By default, the three files will be created in the folder that the script is running from, but you can choose an output folder if you would like 
 
   .EXAMPLE
-  PS> .\RH_UnifiedRS.ps1 # Saves the CSV and TXT file(s) in the current script folder.
+  PS> .Get-CommunityRadioStationDetails.ps1 # Saves the CSV and TXT file(s) in the current script folder.
 
   .NOTES
   Author: Pierre de Wet
