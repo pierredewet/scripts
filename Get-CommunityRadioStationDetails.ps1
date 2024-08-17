@@ -21,23 +21,62 @@
 
 
 # Helper functions
-function Show-Menu {
-
+Function Write-Color {
+# Simplified version. For full version, see: https://github.com/EvotecIT/PSWriteColor
     param (
-        [string]$Title = 'Download Radio Station Details'
+        [alias ('T')] [String[]]$Text,
+        [alias ('C', 'FGC')] [ConsoleColor[]]$Color = [ConsoleColor]::White,
+        [alias ('B', 'BGC')] [ConsoleColor[]]$BackGroundColor = $null,
+        [alias ('Indent')][int] $StartTab = 0,
+        [int] $LinesBefore = 0,
+        [int] $LinesAfter = 0,
+        [int] $StartSpaces = 0
     )
-    write-host "`n"
-    Write-Host "========= $Title ==========="
-    Write-Host "=  1: Press '1' to download Community stations.    ="
-    Write-Host "=  2: Press '2' to download Digital stations.      ="
-    Write-Host "=  3: Press '3' to download Small-scale stations.  ="
-    Write-Host "=  4: Press '4' to download ALL station data.      ="
-    Write-Host "=  Q: Press 'Q' to quit.                           ="
-    Write-Host "===================================================="
+    if (-not $NoConsoleOutput) {
+        $DefaultColor = $Color[0]
+        if ($null -ne $BackGroundColor -and $BackGroundColor.Count -ne $Color.Count) {
+            Write-Error "Count of Color and BackGroundColor parameters do not match. Ended."
+            return
+        }
+        if ($LinesBefore -ne 0) { for ($i = 0; $i -lt $LinesBefore; $i++) { Write-Host -Object "`n" -NoNewline } } # Add empty line before
+        if ($StartTab -ne 0) { for ($i = 0; $i -lt $StartTab; $i++) { Write-Host -Object "`t" -NoNewline } }  # Add TABS before text
+        if ($StartSpaces -ne 0) { for ($i = 0; $i -lt $StartSpaces; $i++) { Write-Host -Object ' ' -NoNewline } }  # Add SPACES before text
+        if ($Text.Count -ne 0) {
+            if ($Color.Count -ge $Text.Count) {
+                if ($null -eq $BackGroundColor) {
+                    for ($i = 0; $i -lt $Text.Length; $i++) { Write-Host -Object $Text[$i] -ForegroundColor $Color[$i] -NoNewline }
+                } else {
+                    for ($i = 0; $i -lt $Text.Length; $i++) { Write-Host -Object $Text[$i] -ForegroundColor $Color[$i] -BackgroundColor $BackGroundColor[$i] -NoNewline }
+                }
+            } else {
+                if ($null -eq $BackGroundColor) {
+                    for ($i = 0; $i -lt $Color.Length ; $i++) { Write-Host -Object $Text[$i] -ForegroundColor $Color[$i] -NoNewline }
+                    for ($i = $Color.Length; $i -lt $Text.Length; $i++) { Write-Host -Object $Text[$i] -ForegroundColor $DefaultColor -NoNewline }
+                } else {
+                    for ($i = 0; $i -lt $Color.Length ; $i++) { Write-Host -Object $Text[$i] -ForegroundColor $Color[$i] -BackgroundColor $BackGroundColor[$i] -NoNewline }
+                    for ($i = $Color.Length; $i -lt $Text.Length; $i++) { Write-Host -Object $Text[$i] -ForegroundColor $DefaultColor -BackgroundColor $BackGroundColor[0] -NoNewline }
+                }
+            }
+        }
+        if ($NoNewLine -eq $true) { Write-Host -NoNewline } else { Write-Host } # Support for no new line
+        if ($LinesAfter -ne 0) { for ($i = 0; $i -lt $LinesAfter; $i++) { Write-Host -Object "`n" -NoNewline } }  # Add empty line after
+    }
+}
 
-    $selection = Read-Host "Please choose stations to scrape"
+Function Show-Menu {
+
+    Write-Host "`n" -BackgroundColor "Black"
+    Write-Color "======= ", "Download Radio Station Details ", "=======" -Color White, Yellow, White
+    Write-Color " Press ", "1", " to download ", "Community", " stations."  -Color Gray, Yellow, Gray, Green, Gray
+    Write-Color " Press ", "2", " to download ", "Digital", " stations."  -Color Gray,  Yellow, Gray, Green, Gray
+    Write-Color " Press ", "3", " to download ", "Small-scale", " stations."  -Color  Gray,  Yellow, Gray, Green, Gray
+    Write-Color " Press ", "4", " to download ", "ALL", " station data."  -Color Gray,  Yellow, Gray, Green, Gray
+    Write-Color " Press ", "Q", " to quit." -Color Gray, Red, Gray -LinesBefore 1
+    Write-Host "=============================================="
+
+    $selection = Read-Host "Please choose stations to scrape and download"
     
-    if ($selection -ne 'q') {
+    if ($selection -in 1..4) {
         $outputSaveLoc = Get-OutputDirectory
     }
 
@@ -57,6 +96,10 @@ function Show-Menu {
             Get-LinkData "CommunitySmallScaleRadio" $smallscale_details.Base_url $smallscale_details.Station_home_url $smallscale_details.Station_details_regex $smallscale_details.Station_name_regex $smallscale_details.Link_match $outputSaveLoc
         }
         'q' { return }  # Quit the menu
+        default {
+            Write-Host "`n" -BackgroundColor "Black"
+            Write-Host "Input not valid! Please choose from the available options." -ForegroundColor "Black" -BackgroundColor "Red" -NoNewline
+        }        
     }
     # Recurse until Q is pressed
     Show-Menu
@@ -64,8 +107,11 @@ function Show-Menu {
 
 Function Write-ProgressBar {
 	param (
+        [Parameter(Position=0)]
 		[int]$counter=1,
+        [Parameter(Position=1)]
 		[int]$total=100,
+        [Parameter(Position=2)]
 		[string]$activity
 	)
 	$percent_complete = ($counter/$total) * 100
@@ -75,6 +121,7 @@ Function Write-ProgressBar {
 
 Function Get-SiteLinks {
     param (
+        [Parameter(Position=0)]
         [string]$baseURL
     )
     Write-Host "Attempting to scrape: $baseURL"
@@ -97,31 +144,41 @@ Function Get-OutputDirectory {
 
     Write-Host "`n"
     Write-Host "By default, the files will be saved in the same directory as where the script is running from."
+    Write-Host "Currrent directory: " -NoNewline
+    Write-Host "$PSScriptRoot" -ForegroundColor "Yellow"
+
     Write-Host "If you would like to save the files in a different directory, enter it below."
-    $OutputLocation = Read-Host "Choose save directory. (Enter to select default)"
+    $OutputLocation = Read-Host "Choose save directory. (Hit Return to select default)"
 
     if (![string]::IsNullOrEmpty($OutputLocation)) {       
         if (Test-Path $OutputLocation) {
-            Write-Host "The entered directory path exists. The script will attempt to save the output file(s) there..."
+            Write-Host "The entered directory path exists."
+            Write-Host "The script will attempt to save the output file(s) to $OutputLocation" -ForegroundColor "Green"
             return $OutputLocation
         }
         else {
             # The custom output folder doesn't exist
+            Write-Host "The entered directory path doesn't exist. `nThe script will attempt to save the output file(s) to the default location instead: $PSScriptRoot" -ForegroundColor "Red"
             return $PSScriptRoot
-            Write-Host "The entered directory path doesn't exist. `nThe script will attempt to save the output file(s) to the default location instead: $PSScriptRoot"
         }
     }
     else {
+        Write-Host "The script will attempt to save the output file(s) to the default location: $PSScriptRoot" -ForegroundColor "Yellow"
         return $PSScriptRoot
     }
 }
 
 Function Write-OutFile {
     param (
+        [Parameter(Position=0)]
         [string]$fileName,
+        [Parameter(Position=1)]
         [System.Collections.ArrayList]$fileData,
+        [Parameter(Position=2)]
         [string]$errorName,
+        [Parameter(Position=3)]
         [System.Collections.Generic.List[string]]$errorData,
+        [Parameter(Position=4)]
         [string]$OutputDirectory = "$PSScriptRoot"
     )
     
@@ -148,12 +205,19 @@ Function Write-OutFile {
 
 Function Get-LinkData {
     param (
+        [Parameter(Position=0)]
         [string]$name,
+        [Parameter(Position=1)]
         [string]$baseURL,
+        [Parameter(Position=2)]
         [string]$homeURL,
+        [Parameter(Position=3)]
         [string]$stationrgx,
+        [Parameter(Position=4)]
         [string]$titlergx,
+        [Parameter(Position=5)]
         [string]$prefixrgx,
+        [Parameter(Position=6)]
         [string]$outputfolder = "$PSScriptRoot"
     )  
 
@@ -265,4 +329,4 @@ $smallscale_details =[PSCustomObject]@{
 
 # Script Entry Point below
 # Process the stations
-Show-Menu 
+Show-Menu
